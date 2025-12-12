@@ -26,8 +26,10 @@ cd /path/to/cvat
 
 ### 2. Install Node Dependencies
 ```bash
-npm install
+npm install --legacy-peer-deps
 ```
+
+**Note:** The `--legacy-peer-deps` flag is required due to peer dependency conflicts between eslint versions.
 
 ### 3. Start Docker Backend
 ```bash
