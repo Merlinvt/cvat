@@ -100,6 +100,7 @@ services:
       CVAT_BASE_URL:
       ONE_RUNNING_JOB_IN_QUEUE_PER_USER:
       CSRF_TRUSTED_ORIGINS: http://localhost:3001
+      CVAT_UI_PORT: 3001
     command: init run server
     labels:
       traefik.enable: "true"
@@ -152,6 +153,10 @@ services:
       - cvat_data:/home/django/data
       - cvat_keys:/home/django/keys
       - cvat_logs:/home/django/logs
+      - ./cvat/apps/engine/models.py:/home/django/cvat/apps/engine/models.py:ro
+      - ./cvat/apps/engine/serializers.py:/home/django/cvat/apps/engine/serializers.py:ro
+      - ./cvat/apps/dataset_manager/formats/cvat.py:/home/django/cvat/apps/dataset_manager/formats/cvat.py:ro
+      - ./cvat/apps/dataset_manager/bindings.py:/home/django/cvat/apps/dataset_manager/bindings.py:ro
     networks:
       - cvat
 

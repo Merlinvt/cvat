@@ -2080,6 +2080,15 @@ class CvatToDmAnnotationConverter:
             dm_attr["keyframe"] = any([element.attributes.get("keyframe") for element in elements])
             anno = dm.Skeleton(elements, label=dm_label,
                 attributes=dm_attr, group=dm_group, z_order=shape.z_order)
+        elif shape.type == ShapeType.BBOX_KEYPOINT:
+            # bbox_keypoint: [xtl, ytl, xbr, ybr, kx, ky]
+            # For Datumaro, represent as a bounding box (keypoint is stored in attributes)
+            x0, y0, x1, y1 = dm_points[0:4]
+            dm_attr['kx'] = dm_points[4] if len(dm_points) > 4 else 0
+            dm_attr['ky'] = dm_points[5] if len(dm_points) > 5 else 0
+            anno = dm.Bbox(x0, y0, x1 - x0, y1 - y0,
+                label=dm_label, attributes=dm_attr, group=dm_group,
+                z_order=shape.z_order)
         else:
             raise Exception("Unknown shape type '%s'" % shape.type)
 

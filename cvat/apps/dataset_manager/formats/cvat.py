@@ -55,7 +55,7 @@ class CvatPath:
 
 
 class CvatExtractor(DatasetBase):
-    _SUPPORTED_SHAPES = ("box", "polygon", "polyline", "points", "skeleton")
+    _SUPPORTED_SHAPES = ("box", "polygon", "polyline", "points", "skeleton", "bbox_keypoint")
 
     def __init__(self, path, subsets=None):
         assert osp.isfile(path), path
@@ -1353,6 +1353,7 @@ def load_anno(file_object, annotations):
         "cuboid",
         "skeleton",
         "mask",
+        "bbox_keypoint",
     )
     context = ElementTree.iterparse(file_object, events=("start", "end"))
     context = iter(context)
@@ -1547,6 +1548,13 @@ def load_anno(file_object, annotations):
                     shape["points"].append(float(el.attrib["ybr2"]))
                 elif el.tag == "skeleton":
                     pass
+                elif el.tag == "bbox_keypoint":
+                    shape["points"].append(float(el.attrib["xtl"]))
+                    shape["points"].append(float(el.attrib["ytl"]))
+                    shape["points"].append(float(el.attrib["xbr"]))
+                    shape["points"].append(float(el.attrib["ybr"]))
+                    shape["points"].append(float(el.attrib["kx"]))
+                    shape["points"].append(float(el.attrib["ky"]))
                 else:
                     for pair in el.attrib["points"].split(";"):
                         shape["points"].extend(map(float, pair.split(",")))

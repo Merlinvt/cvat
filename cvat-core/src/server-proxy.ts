@@ -142,6 +142,29 @@ async function chunkUpload(file: File, uploadConfig): Promise<{ uploadSentSize: 
             onAfterResponse(request, response) {
                 const uploadFilename = response.getHeader('Upload-Filename');
                 if (uploadFilename) uploadResult.filename = uploadFilename;
+
+                // Rewrite the Location header to use the current origin instead of backend URL
+                // This is needed for development when UI runs on a different port than the backend
+                const location = response.getHeader('Location');
+                if (location && config.origin) {
+                    try {
+                        const locationUrl = new URL(location);
+                        const originUrl = new URL(config.origin);
+                        if (locationUrl.origin !== originUrl.origin) {
+                            const newLocation = `${originUrl.origin}${locationUrl.pathname}${locationUrl.search}`;
+                            // Override the getHeader method to return the rewritten location
+                            const originalGetHeader = response.getHeader.bind(response);
+                            response.getHeader = (header: string) => {
+                                if (header.toLowerCase() === 'location') {
+                                    return newLocation;
+                                }
+                                return originalGetHeader(header);
+                            };
+                        }
+                    } catch {
+                        // If URL parsing fails, just use the original location
+                    }
+                }
             },
             onSuccess() {
                 resolve({

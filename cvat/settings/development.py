@@ -37,6 +37,28 @@ INCORRECT_EMAIL_CONFIRMATION_URL = "{}/auth/incorrect-email-confirmation".format
 
 CORS_ORIGIN_WHITELIST = [UI_URL]
 CORS_REPLACE_HTTPS_REFERER = True
+
+# Allow all methods needed for TUS upload protocol
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "HEAD",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
+# Expose headers needed for TUS upload
+CORS_EXPOSE_HEADERS = [
+    "location",
+    "upload-offset",
+    "upload-length",
+    "tus-version",
+    "tus-resumable",
+    "tus-max-size",
+    "tus-extension",
+]
 IAM_OPA_HOST = "http://localhost:8181"
 IAM_OPA_DATA_URL = f"{IAM_OPA_HOST}/v1/data"
 
