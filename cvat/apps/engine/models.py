@@ -77,6 +77,7 @@ class StatusChoice(str, Enum):
 
 class LabelType(str, Enum):
     ANY = 'any'
+    BBOX_KEYPOINT = 'bbox_keypoint'
     CUBOID = 'cuboid'
     ELLIPSE = 'ellipse'
     MASK = 'mask'
@@ -1150,6 +1151,7 @@ class ShapeType(str, Enum):
     CUBOID = 'cuboid'       # (x0, y0, ..., x7, y7)
     MASK = 'mask'       # (rle mask, left, top, right, bottom)
     SKELETON = 'skeleton'
+    BBOX_KEYPOINT = 'bbox_keypoint' # (x0, y0, x1, y1, kx, ky)
 
     @classmethod
     def choices(cls):

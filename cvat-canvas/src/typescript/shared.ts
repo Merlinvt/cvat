@@ -221,6 +221,40 @@ export function readPointsFromShape(shape: SVG.Shape): number[] {
             `${shape.attr('x') + shape.attr('width')},${shape.attr('y') + shape.attr('height')}`;
     } else if (shape.type === 'circle') {
         points = `${shape.cx()},${shape.cy()}`;
+    } else if (shape.type === 'g') {
+        // Handle bbox_keypoint group: contains rect (bbox) + circle (keypoint)
+        // Need to account for any transforms applied to the group
+        const children = (shape as any).children();
+        let rectPoints: number[] = [];
+        let circlePoints: number[] = [];
+
+        // Get group transform (translation and scale from drag/resize)
+        const transform = shape.transform() as any;
+        const translateX = transform.translateX ?? transform.e ?? 0;
+        const translateY = transform.translateY ?? transform.f ?? 0;
+        const scaleX = transform.scaleX ?? transform.a ?? 1;
+        const scaleY = transform.scaleY ?? transform.d ?? 1;
+
+        for (const child of children) {
+            if (child.type === 'rect') {
+                // Get rect's local coordinates and apply group transform
+                const localX = +child.attr('x');
+                const localY = +child.attr('y');
+                const w = +child.attr('width') * scaleX;
+                const h = +child.attr('height') * scaleY;
+                const x = localX * scaleX + translateX;
+                const y = localY * scaleY + translateY;
+                rectPoints = [x, y, x + w, y + h];
+            } else if (child.type === 'circle') {
+                // Get circle's local coordinates and apply group transform
+                const localCx = child.cx();
+                const localCy = child.cy();
+                const cx = localCx * scaleX + translateX;
+                const cy = localCy * scaleY + translateY;
+                circlePoints = [cx, cy];
+            }
+        }
+        return [...rectPoints, ...circlePoints];
     } else {
         points = shape.attr('points');
     }

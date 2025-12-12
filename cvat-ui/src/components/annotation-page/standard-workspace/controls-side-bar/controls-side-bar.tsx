@@ -32,6 +32,7 @@ import DrawEllipseControl, { Props as DrawEllipseControlProps } from './draw-ell
 import DrawCuboidControl, { Props as DrawCuboidControlProps } from './draw-cuboid-control';
 import DrawMaskControl, { Props as DrawMaskControlProps } from './draw-mask-control';
 import DrawSkeletonControl, { Props as DrawSkeletonControlProps } from './draw-skeleton-control';
+import DrawBboxKeypointControl, { Props as DrawBboxKeypointControlProps } from './draw-bbox-keypoint-control';
 import SetupTagControl, { Props as SetupTagControlProps } from './setup-tag-control';
 import MergeControl, { Props as MergeControlProps } from './merge-control';
 import GroupControl, { Props as GroupControlProps } from './group-control';
@@ -134,6 +135,7 @@ const ObservedDrawEllipseControl = ControlVisibilityObserver<DrawEllipseControlP
 const ObservedDrawCuboidControl = ControlVisibilityObserver<DrawCuboidControlProps>(DrawCuboidControl);
 const ObservedDrawMaskControl = ControlVisibilityObserver<DrawMaskControlProps>(DrawMaskControl);
 const ObservedDrawSkeletonControl = ControlVisibilityObserver<DrawSkeletonControlProps>(DrawSkeletonControl);
+const ObservedDrawBboxKeypointControl = ControlVisibilityObserver<DrawBboxKeypointControlProps>(DrawBboxKeypointControl);
 const ObservedSetupTagControl = ControlVisibilityObserver<SetupTagControlProps>(SetupTagControl);
 const ObservedMergeControl = ControlVisibilityObserver<MergeControlProps>(MergeControl);
 const ObservedGroupControl = ControlVisibilityObserver<GroupControlProps>(GroupControl);
@@ -168,6 +170,7 @@ export default function ControlsSideBarComponent(props: Props): JSX.Element {
     let maskControlVisible = withUnspecifiedType;
     let tagControlVisible = withUnspecifiedType;
     const skeletonControlVisible = labels.some((label: Label) => label.type === 'skeleton');
+    const bboxKeypointControlVisible = labels.some((label: Label) => label.type === 'bbox_keypoint');
     labels.forEach((label: Label) => {
         rectangleControlVisible = rectangleControlVisible || label.type === LabelType.RECTANGLE;
         polygonControlVisible = polygonControlVisible || label.type === LabelType.POLYGON;
@@ -422,6 +425,15 @@ export default function ControlsSideBarComponent(props: Props): JSX.Element {
                     <ObservedDrawSkeletonControl
                         canvasInstance={canvasInstance}
                         isDrawing={activeControl === ActiveControl.DRAW_SKELETON}
+                        disabled={controlsDisabled}
+                    />
+                )
+            }
+            {
+                bboxKeypointControlVisible && (
+                    <ObservedDrawBboxKeypointControl
+                        canvasInstance={canvasInstance}
+                        isDrawing={activeControl === ActiveControl.DRAW_BBOX_KEYPOINT}
                         disabled={controlsDisabled}
                     />
                 )

@@ -7,6 +7,11 @@ from .base import *  # pylint: disable=wildcard-import
 
 DEBUG = False
 
+# Allow CSRF trusted origins from environment variable (for development with local UI)
+_csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+if _csrf_origins:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in _csrf_origins.split(",")]
+
 NUCLIO["HOST"] = os.getenv("CVAT_NUCLIO_HOST", "nuclio")
 
 # Django-sendfile:

@@ -1,0 +1,10 @@
+UPDATE_EDITED_STATE @ 13:25:36.931
+annotation-actions.ts:1155  action UPDATE_ANNOTATIONS_SUCCESS @ 13:25:36.941
+annotation-actions.ts:650  action UPDATE_CACHED_CHUNKS @ 13:25:36.955
+annotation-actions.ts:669  action CONFIRM_CANVAS_READY @ 13:25:36.959
+#
+
+UPDATE_EDITED_STATE @ 13:25:36.931
+annotation-actions.ts:1155  action UPDATE_ANNOTATIONS_SUCCESS @ 13:25:36.941
+annotation-actions.ts:650  action UPDATE_CACHED_CHUNKS @ 13:25:36.955
+annotation-actions.ts:669  action CONFIRM_CANVAS_READY @ 13:25:36.959

@@ -81,6 +81,7 @@ export enum ShapeType {
     CUBOID = 'cuboid',
     SKELETON = 'skeleton',
     MASK = 'mask',
+    BBOX_KEYPOINT = 'bbox_keypoint',
 }
 
 export enum Source {
@@ -261,4 +262,5 @@ export enum LabelType {
     SKELETON = 'skeleton',
     MASK = 'mask',
     TAG = 'tag',
+    BBOX_KEYPOINT = 'bbox_keypoint',
 }

@@ -1,0 +1,180 @@
+# CVAT Modification: Three-Click Bounding Box + Keypoint Labeling
+
+## Overview
+
+Modify CVAT (Computer Vision Annotation Tool) to support a streamlined annotation workflow where a bounding box and its associated keypoint (root point) can be created in exactly 3 clicks, without tool switching.
+
+---
+
+## User Story
+
+**As an** annotator labeling plant images for precision farming,
+**I want to** create a bounding box around a plant AND place a root point inside it in a single continuous action (3 clicks),
+**So that** I can annotate 200-1000 images per field efficiently without excessive clicking or tool switching.
+
+---
+
+## Functional Requirements
+
+### FR-1: Three-Click Annotation Mode
+
+**Description:** A new annotation mode that combines bounding box creation with keypoint placement.
+
+**Workflow:**
+1. **Click 1:** Set top-left corner of bounding box
+2. **Click 2:** Set bottom-right corner of bounding box (box is now visible)
+3. **Click 3:** Place keypoint (root point) inside or near the bounding box
+
+**Behavior:**
+- After click 3, the annotation is complete
+- Both bounding box and keypoint are saved as a single linked annotation unit
+- Tool automatically resets for the next annotation (ready for click 1 again)
+- No tool switching required between annotations
+
+### FR-2: Class Assignment
+
+**Description:** The user must be able to assign a class to the combined annotation.
+
+**Options:**
+- Pre-select class before annotating (e.g., "Weed" or "Carrot")
+- Class applies to both the bounding box AND the keypoint
+- Keyboard shortcuts for quick class switching (e.g., `1` = Weed, `2` = Carrot)
+
+### FR-3: Edit Existing Annotations
+
+**Description:** Allow modification of previously created annotations.
+
+**Requirements:**
+- Drag bounding box edges/corners to resize
+- Drag entire bounding box to reposition
+- **Drag keypoint independently** to adjust root point position
+- Keypoint must remain logically linked to its parent bounding box
+- Delete annotation removes both bounding box and keypoint together
+
+### FR-4: Import Pre-Annotations
+
+**Description:** Support importing pre-generated annotations for correction workflow.
+
+**Input Format:** JSON or XML containing:
+```json
+{
+  "annotations": [
+    {
+      "bbox": {"x": 100, "y": 150, "width": 80, "height": 120},
+      "keypoint": {"x": 140, "y": 210},
+      "class": "weed"
+    }
+  ]
+}
+```
+
+**Behavior:**
+- Imported annotations are editable using FR-3
+- Keypoints can be dragged to correct position
+- Bounding boxes can be split (create new annotation from part of existing one)
+
+### FR-5: Export Format
+
+**Description:** Export annotations in COCO Keypoint format or compatible format.
+
+**Required Fields:**
+- Bounding box: `[x, y, width, height]`
+- Keypoint: `[x, y, visibility]` (visibility: 0=not labeled, 1=labeled but occluded, 2=labeled and visible)
+- Category/Class ID
+- Image ID
+
+---
+
+## Non-Functional Requirements
+
+### NFR-1: Performance
+- Annotation creation must feel instantaneous (<100ms response)
+- Smooth rendering when image contains 50+ annotations
+
+### NFR-2: Usability
+- Visual feedback on each click (cursor change, preview lines)
+- Clear indication of current state (waiting for click 1, 2, or 3)
+- Undo support (Ctrl+Z) for last action
+
+### NFR-3: Compatibility
+- Must work in standard CVAT deployment (Docker)
+- Should not break existing CVAT annotation types
+- New mode should be selectable alongside existing tools
+
+---
+
+## Technical Approach (Suggestion)
+
+### Option A: Extend Skeleton Tool
+CVAT's skeleton tool already places a template within a bounding box. Modify to:
+- Allow single-point skeleton (just the root point)
+- Auto-create bounding box from first two clicks
+- Place skeleton point on third click
+
+### Option B: Create New Combined Tool
+Add new tool type `bbox_keypoint` that:
+- Extends rectangle tool behavior
+- Adds keypoint placement as final step
+- Stores as linked annotation pair
+
+### Option C: Modify Rectangle Tool with Hook
+- After rectangle completion, automatically prompt for keypoint
+- Store relationship in annotation metadata
+
+---
+
+## Acceptance Criteria
+
+- [ ] User can create bbox + keypoint in exactly 3 clicks
+- [ ] No tool switching required during annotation
+- [ ] Keypoint is visually rendered inside/near bounding box
+- [ ] Keypoint can be dragged independently after creation
+- [ ] Bounding box can be resized without losing keypoint link
+- [ ] Annotations export in COCO-compatible format with keypoints
+- [ ] Pre-annotations can be imported and corrected
+- [ ] Works with keyboard shortcuts for class switching
+- [ ] Undo (Ctrl+Z) works for the combined annotation
+
+---
+
+## Out of Scope (v1)
+
+- Multi-keypoint skeletons (only single root point needed)
+- Automatic keypoint prediction
+- Video annotation support
+- Mobile/touch interface
+
+---
+
+## CVAT Codebase Entry Points
+
+Based on CVAT architecture, likely files to modify:
+
+```
+cvat/
+├── cvat-ui/
+│   └── src/
+│       └── components/
+│           └── annotation-page/
+│               └── canvas/              # Canvas interaction logic
+│               └── standard-workspace/  # Tool selection
+│       └── actions/
+│           └── annotation-actions.ts    # Annotation state management
+├── cvat-canvas/
+│   └── src/
+│       └── typescript/
+│           └── drawHandler.ts           # Shape drawing logic
+│           └── editHandler.ts           # Shape editing logic
+└── cvat-core/
+    └── src/
+        └── annotations.ts               # Annotation data structures
+```
+
+---
+
+## Definition of Done
+
+1. Feature works in local CVAT deployment
+2. Manual testing with 20+ sample images completed
+3. Export verified to be compatible with PyTorch keypoint detection training
+4. Documentation updated (at minimum: usage instructions)

@@ -772,6 +772,7 @@ export enum ActiveControl {
     DRAW_MASK = 'draw_mask',
     DRAW_CUBOID = 'draw_cuboid',
     DRAW_SKELETON = 'draw_skeleton',
+    DRAW_BBOX_KEYPOINT = 'draw_bbox_keypoint',
     MERGE = 'merge',
     GROUP = 'group',
     JOIN = 'join',

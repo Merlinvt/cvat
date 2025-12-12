@@ -8,7 +8,7 @@ import {
     MaskShape, BasicInjection, SkeletonShape,
     SkeletonTrack, PolygonShape, CuboidShape,
     RectangleShape, PolylineShape, PointsShape, EllipseShape,
-    InterpolationNotPossibleError,
+    BboxKeypointShape, InterpolationNotPossibleError,
 } from './annotations-objects';
 import { SerializedCollection, SerializedShape, SerializedTrack } from './server-response-types';
 import AnnotationsFilter from './annotations-filter';
@@ -1261,6 +1261,9 @@ export default class Collection {
                     break;
                 case ShapeType.SKELETON:
                     distanceMetric = SkeletonShape.distance;
+                    break;
+                case ShapeType.BBOX_KEYPOINT:
+                    distanceMetric = BboxKeypointShape.distance;
                     break;
                 default:
                     throw new ArgumentError(`Unknown shape type "${state.shapeType}"`);

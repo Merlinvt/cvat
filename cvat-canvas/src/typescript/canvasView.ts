@@ -1144,6 +1144,17 @@ export class CanvasViewImpl implements CanvasView, Listener {
         onDragMove: () => void = () => {},
         onDragEnd: () => void = () => {},
     ): void {
+        // For bbox_keypoint, dragging is handled in resizable() for the rect
+        // Skip draggable setup here to avoid conflicts
+        const drawnState = this.drawnStates[shape.attr('clientID')];
+        if (state?.shapeType === 'bbox_keypoint' || drawnState?.shapeType === 'bbox_keypoint') {
+            if (!state) {
+                // Cleanup is handled in resizable
+                shape.removeClass('cvat_canvas_shape_draggable');
+            }
+            return;
+        }
+
         let draggableInstance = shape;
         if (shape.classes().includes('cvat_canvas_shape_skeleton')) {
             // for skeletons we use wrapping rectangle to drag the skeleton itself
@@ -1225,6 +1236,41 @@ export class CanvasViewImpl implements CanvasView, Listener {
                             }
                         });
                         this.onEditDone(state, points);
+                    } else if (state.shapeType === 'bbox_keypoint') {
+                        // For bbox_keypoint, when dragging the group:
+                        // - Update the bbox position based on group transform
+                        // - Keep the keypoint at its ORIGINAL position (don't move with bbox)
+                        const transform = (shape as any).transform();
+                        const translateX = transform.translateX ?? transform.e ?? 0;
+                        const translateY = transform.translateY ?? transform.f ?? 0;
+
+                        const children = (shape as SVG.G).children();
+                        let newBboxPoints: number[] = [];
+                        let originalKeypointPos: number[] = [];
+
+                        for (const child of children) {
+                            if ((child as any).type === 'rect') {
+                                const localX = +(child as any).attr('x');
+                                const localY = +(child as any).attr('y');
+                                const w = +(child as any).attr('width');
+                                const h = +(child as any).attr('height');
+                                // Apply transform to bbox
+                                newBboxPoints = [
+                                    localX + translateX,
+                                    localY + translateY,
+                                    localX + translateX + w,
+                                    localY + translateY + h,
+                                ];
+                            } else if ((child as any).type === 'circle') {
+                                // Keep keypoint at its LOCAL position (no transform applied)
+                                // This makes the keypoint independent of the bbox movement
+                                originalKeypointPos = [(child as any).cx(), (child as any).cy()];
+                            }
+                        }
+
+                        // Combine: new bbox position + original keypoint position
+                        const points = [...newBboxPoints, ...originalKeypointPos];
+                        this.onEditDone(state, this.translateFromCanvas(points));
                     } else {
                         // these points does not take into account possible transformations, applied on the element
                         // so, if any (like rotation) we need to map them to canvas coordinate space
@@ -1325,6 +1371,82 @@ export class CanvasViewImpl implements CanvasView, Listener {
             });
         }
 
+        // For bbox_keypoint, use rect as resizable/draggable instance and keypoint as separate draggable
+        const drawnState = this.drawnStates[shape.attr('clientID')];
+        const isBboxKeypoint = state?.shapeType === 'bbox_keypoint' || drawnState?.shapeType === 'bbox_keypoint';
+        if (isBboxKeypoint) {
+            const rectChild = (shape as any).children()?.find((child: SVG.Element) => child.type === 'rect');
+            const keypointCircle = (shape as any).children()?.find((child: SVG.Element) => child.type === 'circle');
+
+            if (rectChild) {
+                resizableInstance = rectChild;
+            }
+
+            if (state) {
+                // Make rect draggable (for moving bbox only)
+                if (rectChild) {
+                    (rectChild as any).draggable();
+                    rectChild.addClass('cvat_canvas_shape_draggable');
+
+                    rectChild.on('dragstart.bboxkeypoint', (): void => {
+                        this.mode = Mode.DRAG;
+                    });
+
+                    rectChild.on('dragend.bboxkeypoint', (): void => {
+                        this.mode = Mode.IDLE;
+                        // Get new bbox position from rect
+                        const bboxX = +rectChild.attr('x');
+                        const bboxY = +rectChild.attr('y');
+                        const bboxW = +rectChild.attr('width');
+                        const bboxH = +rectChild.attr('height');
+                        // Get keypoint position (unchanged)
+                        const kx = keypointCircle ? keypointCircle.cx() : 0;
+                        const ky = keypointCircle ? keypointCircle.cy() : 0;
+                        const points = [bboxX, bboxY, bboxX + bboxW, bboxY + bboxH, kx, ky];
+                        this.onEditDone(state, this.translateFromCanvas(points));
+                    });
+                }
+
+                // Make keypoint circle draggable separately
+                if (keypointCircle) {
+                    (keypointCircle as any).draggable();
+                    keypointCircle.addClass('cvat_canvas_shape_draggable');
+
+                    keypointCircle.on('dragstart.bboxkeypoint', (): void => {
+                        this.mode = Mode.DRAG;
+                    });
+
+                    keypointCircle.on('dragend.bboxkeypoint', (): void => {
+                        this.mode = Mode.IDLE;
+                        // Get current bbox position (unchanged)
+                        const bboxX = rectChild ? +rectChild.attr('x') : 0;
+                        const bboxY = rectChild ? +rectChild.attr('y') : 0;
+                        const bboxW = rectChild ? +rectChild.attr('width') : 0;
+                        const bboxH = rectChild ? +rectChild.attr('height') : 0;
+                        // Get new keypoint position
+                        const kx = keypointCircle.cx();
+                        const ky = keypointCircle.cy();
+                        const points = [bboxX, bboxY, bboxX + bboxW, bboxY + bboxH, kx, ky];
+                        this.onEditDone(state, this.translateFromCanvas(points));
+                    });
+                }
+            } else {
+                // Cleanup
+                if (rectChild) {
+                    rectChild.off('dragstart.bboxkeypoint');
+                    rectChild.off('dragend.bboxkeypoint');
+                    (rectChild as any).draggable(false);
+                    rectChild.removeClass('cvat_canvas_shape_draggable');
+                }
+                if (keypointCircle) {
+                    keypointCircle.off('dragstart.bboxkeypoint');
+                    keypointCircle.off('dragend.bboxkeypoint');
+                    (keypointCircle as any).draggable(false);
+                    keypointCircle.removeClass('cvat_canvas_shape_draggable');
+                }
+            }
+        }
+
         if (state) {
             let resized = false;
             let aborted = false;
@@ -1417,6 +1539,35 @@ export class CanvasViewImpl implements CanvasView, Listener {
                                 });
                                 this.onEditDone(state, points, 0);
                             }
+                        } else if (state.shapeType === 'bbox_keypoint') {
+                            // For bbox_keypoint, resizableInstance is the rect child
+                            // Read the new bbox directly from the rect (after resize transform)
+                            const rectTransform = (resizableInstance as any).transform();
+                            const translateX = rectTransform.translateX ?? rectTransform.e ?? 0;
+                            const translateY = rectTransform.translateY ?? rectTransform.f ?? 0;
+                            const scaleX = rectTransform.scaleX ?? rectTransform.a ?? 1;
+                            const scaleY = rectTransform.scaleY ?? rectTransform.d ?? 1;
+
+                            const localX = +resizableInstance.attr('x');
+                            const localY = +resizableInstance.attr('y');
+                            const w = +resizableInstance.attr('width');
+                            const h = +resizableInstance.attr('height');
+
+                            // Apply transform to get new bbox position
+                            const newX = localX * scaleX + translateX;
+                            const newY = localY * scaleY + translateY;
+                            const newW = w * scaleX;
+                            const newH = h * scaleY;
+                            const newBboxPoints = [newX, newY, newX + newW, newY + newH];
+
+                            // Get keypoint position (unchanged - from circle child)
+                            const keypointCircle = (shape as SVG.G).children()
+                                .find((child: SVG.Element) => (child as any).type === 'circle');
+                            const kx = keypointCircle ? keypointCircle.cx() : 0;
+                            const ky = keypointCircle ? keypointCircle.cy() : 0;
+
+                            const points = [...newBboxPoints, kx, ky];
+                            this.onEditDone(state, this.translateFromCanvas(points), 0);
                         } else {
                             // these points does not take into account possible transformations, applied on the element
                             // so, if any (like rotation) we need to map them to canvas coordinate space
@@ -2486,8 +2637,8 @@ export class CanvasViewImpl implements CanvasView, Listener {
                 state.points.some((p: number, id: number): boolean => p !== drawnState.points[id]);
 
             if (pointsUpdated) {
-                if (state.shapeType === 'mask') {
-                    // if masks points were updated, draw from scratch
+                if (state.shapeType === 'mask' || state.shapeType === 'bbox_keypoint') {
+                    // if mask/bbox_keypoint points were updated, draw from scratch
                     this.deleteObjects([this.drawnStates[+clientID]]);
                     this.addObjects([state]);
                     continue;
@@ -2638,6 +2789,8 @@ export class CanvasViewImpl implements CanvasView, Listener {
                         this.svgShapes[state.clientID] = this.addEllipse(stringified, state);
                     } else if (state.shapeType === 'cuboid') {
                         this.svgShapes[state.clientID] = this.addCuboid(stringified, state);
+                    } else if (state.shapeType === 'bbox_keypoint') {
+                        this.svgShapes[state.clientID] = this.addBboxKeypoint(translatedPoints, state);
                     } else {
                         continue;
                     }
@@ -3244,6 +3397,64 @@ export class CanvasViewImpl implements CanvasView, Listener {
         }
 
         return rect;
+    }
+
+    private addBboxKeypoint(points: number[], state: any): SVG.G {
+        const [xtl, ytl, xbr, ybr, kx, ky] = points;
+
+        // Create a group to hold both the rectangle and keypoint circle
+        const group = this.adoptedContent.group()
+            .attr({
+                clientID: state.clientID,
+                id: `cvat_canvas_shape_${state.clientID}`,
+                'data-z-order': state.zOrder,
+            })
+            .addClass('cvat_canvas_shape');
+
+        // Add the bounding box rectangle
+        const bboxRect = group.rect(xbr - xtl, ybr - ytl)
+            .move(xtl, ytl)
+            .attr({
+                'color-rendering': 'optimizeQuality',
+                'shape-rendering': 'geometricprecision',
+                'stroke-width': consts.BASE_STROKE_WIDTH / this.geometry.scale,
+                ...this.getShapeColorization(state),
+            });
+
+        // Add the keypoint circle
+        const KEYPOINT_RADIUS = 5 / this.geometry.scale;
+        group.circle(KEYPOINT_RADIUS * 2)
+            .center(kx, ky)
+            .attr({
+                'stroke-width': consts.BASE_STROKE_WIDTH / this.geometry.scale,
+                fill: state.color,
+                stroke: 'black',
+            });
+
+        if (state.occluded) {
+            group.addClass('cvat_canvas_shape_occluded');
+        }
+
+        if (state.hidden || state.outside || this.isInnerHidden(state.clientID)) {
+            group.addClass('cvat_canvas_hidden');
+        }
+
+        if (state.isGroundTruth) {
+            group.addClass('cvat_canvas_ground_truth');
+        }
+
+        // Override selectize to work on the rect child instead of the group
+        // Similar to how skeleton handles this
+        (group as any).selectize = (enabled: boolean) => {
+            this.selectize(enabled, bboxRect);
+            const handler = bboxRect.remember('_selectHandler');
+            if (enabled && handler) {
+                this.adoptedContent.node.append(handler.nested.node);
+                handler.nested.attr('fill', group.attr('fill') || state.color);
+            }
+        };
+
+        return group;
     }
 
     private addPolygon(points: string, state: any): SVG.Polygon {

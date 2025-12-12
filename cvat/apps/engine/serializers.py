@@ -3266,6 +3266,8 @@ class ShapeSerializer(serializers.Serializer):
             bad_num_points_unless(num_points >= 5)
         elif shape_type == models.ShapeType.SKELETON:
             bad_num_points_unless(num_points == 0)
+        elif shape_type == models.ShapeType.BBOX_KEYPOINT:
+            bad_num_points_unless(num_points == 6)
         else:
             assert False, f"Unknown shape type '{shape_type}'"
 

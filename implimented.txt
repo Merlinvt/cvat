@@ -1,0 +1,65 @@
+Implementation Complete
+
+  I've implemented the Three-Click Bounding Box + Keypoint annotation feature for CVAT. Here's a summary of all the changes
+  made:
+
+  Files Modified:
+
+  Canvas Layer:
+  1. cvat-canvas/src/typescript/canvasModel.ts
+    - Added SkeletonDrawingMethod enum with TEMPLATE and THREE_CLICK values
+    - Extended DrawData interface with skeletonDrawingMethod property
+    - Added default value handling for skeleton drawing method in draw() method
+  2. cvat-canvas/src/typescript/drawHandler.ts
+    - Added import for SkeletonDrawingMethod
+    - Implemented drawSkeletonBy3Clicks() method (~140 lines) with:
+        - State machine for 3 clicks (corner 1 → corner 2 → keypoint)
+      - Visual preview for bounding box and keypoint
+      - Coordinate normalization and frame clamping
+      - Output compatible with existing skeleton format
+    - Modified startDraw() to route to new method when THREE_CLICK is selected
+  3. cvat-canvas/src/typescript/canvas.ts
+    - Added import and export for SkeletonDrawingMethod
+
+  UI Layer:
+  4. cvat-ui/src/cvat-canvas-wrapper.ts
+  - Added import and export for SkeletonDrawingMethod
+
+  5. cvat-ui/src/components/annotation-page/standard-workspace/controls-side-bar/draw-shape-popover.tsx
+    - Added props for skeletonDrawingMethod and onChangeSkeletonDrawingMethod
+    - Added radio button UI for skeleton drawing method selection (Template vs 3 Clicks)
+  6. cvat-ui/src/containers/annotation-page/standard-workspace/controls-side-bar/draw-shape-popover.tsx
+    - Added state management for skeletonDrawingMethod
+    - Added onChangeSkeletonDrawingMethod handler
+    - Updated onDraw() to pass skeleton drawing method to canvas
+    - Enabled crosshair for skeleton drawing
+  7. cvat-ui/src/actions/annotation-actions.ts
+    - Added import for SkeletonDrawingMethod
+    - Extended rememberObject to include activeSkeletonDrawingMethod
+  8. cvat-ui/src/reducers/index.ts
+    - Added import for SkeletonDrawingMethod
+    - Extended drawing state interface with activeSkeletonDrawingMethod
+
+  How It Works:
+
+  1. User selects a skeleton label and chooses "3 Clicks" drawing method
+  2. Click 1: Sets top-left corner of bounding box
+  3. Click 2: Sets bottom-right corner (box becomes visible)
+  4. Click 3: Places keypoint inside/near the box
+  5. Annotation is saved as a skeleton with a single keypoint element
+  6. Tool automatically resets for the next annotation
+
+  What Already Works (No Changes Needed):
+
+  - COCO Keypoints Export: Existing skeleton → COCO export works
+  - COCO Keypoints Import: Existing import works
+  - Editing: Skeleton editing (drag keypoints, resize bbox) already works
+  - Undo/Redo: Uses existing infrastructure
+
+  To Test:
+
+  1. Build the CVAT project
+  2. Create a skeleton label with at least one sublabel (keypoint)
+  3. In the annotation workspace, select the skeleton tool
+  4. Choose "3 Clicks" in the drawing method selector
+  5. Draw: click corner 1, click corner 2, click keypoint position

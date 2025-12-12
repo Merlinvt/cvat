@@ -757,6 +757,11 @@ def create_xml_dumper(file_object):
             self.xmlgen.startElement("skeleton", skeleton)
             self._level += 1
 
+        def open_bbox_keypoint(self, bbox_keypoint):
+            self._indent()
+            self.xmlgen.startElement("bbox_keypoint", bbox_keypoint)
+            self._level += 1
+
         def add_attribute(self, attribute):
             self._indent()
             self.xmlgen.startElement("attribute", {"name": attribute["name"]})
@@ -807,6 +812,11 @@ def create_xml_dumper(file_object):
             self._level -= 1
             self._indent()
             self.xmlgen.endElement("skeleton")
+
+        def close_bbox_keypoint(self):
+            self._level -= 1
+            self._indent()
+            self.xmlgen.endElement("bbox_keypoint")
 
         def close_image(self):
             self._level -= 1
@@ -879,6 +889,19 @@ def dump_as_cvat_annotation(dumper, annotations: JobData | TaskData | ProjectDat
                         dump_data.update(
                             OrderedDict([("rotation", "{:.2f}".format(shape.rotation))])
                         )
+                elif shape.type == "bbox_keypoint":
+                    dump_data.update(
+                        OrderedDict(
+                            [
+                                ("xtl", "{:.2f}".format(shape.points[0])),
+                                ("ytl", "{:.2f}".format(shape.points[1])),
+                                ("xbr", "{:.2f}".format(shape.points[2])),
+                                ("ybr", "{:.2f}".format(shape.points[3])),
+                                ("kx", "{:.2f}".format(shape.points[4])),
+                                ("ky", "{:.2f}".format(shape.points[5])),
+                            ]
+                        )
+                    )
                 elif shape.type == "ellipse":
                     dump_data.update(
                         OrderedDict(
@@ -969,6 +992,8 @@ def dump_as_cvat_annotation(dumper, annotations: JobData | TaskData | ProjectDat
                 elif shape.type == "skeleton":
                     dumper.open_skeleton(dump_data)
                     dump_labeled_shapes(shape.elements, is_skeleton=True)
+                elif shape.type == "bbox_keypoint":
+                    dumper.open_bbox_keypoint(dump_data)
                 else:
                     raise NotImplementedError("unknown shape type")
 
@@ -991,6 +1016,8 @@ def dump_as_cvat_annotation(dumper, annotations: JobData | TaskData | ProjectDat
                     dumper.close_mask()
                 elif shape.type == "skeleton":
                     dumper.close_skeleton()
+                elif shape.type == "bbox_keypoint":
+                    dumper.close_bbox_keypoint()
                 else:
                     raise NotImplementedError("unknown shape type")
 
@@ -1058,6 +1085,19 @@ def dump_as_cvat_interpolation(dumper, annotations: CommonData | ProjectData):
 
             if shape.rotation:
                 dump_data.update(OrderedDict([("rotation", "{:.2f}".format(shape.rotation))]))
+        elif shape.type == "bbox_keypoint":
+            dump_data.update(
+                OrderedDict(
+                    [
+                        ("xtl", "{:.2f}".format(shape.points[0])),
+                        ("ytl", "{:.2f}".format(shape.points[1])),
+                        ("xbr", "{:.2f}".format(shape.points[2])),
+                        ("ybr", "{:.2f}".format(shape.points[3])),
+                        ("kx", "{:.2f}".format(shape.points[4])),
+                        ("ky", "{:.2f}".format(shape.points[5])),
+                    ]
+                )
+            )
         elif shape.type == "mask":
             dump_data.update(
                 OrderedDict(
@@ -1129,6 +1169,8 @@ def dump_as_cvat_interpolation(dumper, annotations: CommonData | ProjectData):
                 dumper.open_skeleton(dump_data)
                 for element_shape, label in element_shapes.get(shape.frame, []):
                     dump_shape(element_shape, label=label)
+        elif shape.type == "bbox_keypoint":
+            dumper.open_bbox_keypoint(dump_data)
         else:
             raise NotImplementedError("unknown shape type")
 
@@ -1151,6 +1193,8 @@ def dump_as_cvat_interpolation(dumper, annotations: CommonData | ProjectData):
             dumper.close_polyline()
         elif shape.type == "points":
             dumper.close_points()
+        elif shape.type == "bbox_keypoint":
+            dumper.close_bbox_keypoint()
         elif shape.type == "mask":
             dumper.close_mask()
         elif shape.type == "cuboid":

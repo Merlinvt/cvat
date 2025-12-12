@@ -1397,6 +1397,7 @@ export const ShapeTypeToControl: Record<ShapeType, ActiveControl> = {
     [ShapeType.ELLIPSE]: ActiveControl.DRAW_ELLIPSE,
     [ShapeType.SKELETON]: ActiveControl.DRAW_SKELETON,
     [ShapeType.MASK]: ActiveControl.DRAW_MASK,
+    [ShapeType.BBOX_KEYPOINT]: ActiveControl.DRAW_BBOX_KEYPOINT,
 };
 
 export function pasteShapeAsync(): ThunkAction {

@@ -748,7 +748,7 @@ export class CanvasModelImpl extends MasterImpl implements CanvasModel {
 
     public draw(drawData: DrawData): void {
         const supportedShapes = [
-            'rectangle', 'polygon', 'polyline', 'points', 'ellipse', 'cuboid', 'skeleton', 'mask',
+            'rectangle', 'polygon', 'polyline', 'points', 'ellipse', 'cuboid', 'skeleton', 'mask', 'bbox_keypoint',
         ];
         if (![Mode.IDLE, Mode.DRAW].includes(this.data.mode)) {
             throw Error(`Canvas is busy. Action: ${this.data.mode}`);

@@ -1891,6 +1891,46 @@ export class CuboidShape extends Shape {
     }
 }
 
+export class BboxKeypointShape extends Shape {
+    constructor(data: SerializedShape, clientID: number, color: string, injection: AnnotationInjection) {
+        super(data, clientID, color, injection);
+        this.shapeType = ShapeType.BBOX_KEYPOINT;
+        this.pinned = false;
+        this.rotation = 0; // rotation not supported for bbox_keypoint
+        checkNumberOfPoints(this.shapeType, this.points);
+    }
+
+    // Get bbox portion of points [xtl, ytl, xbr, ybr]
+    get bbox(): [number, number, number, number] {
+        return [this.points[0], this.points[1], this.points[2], this.points[3]];
+    }
+
+    // Get keypoint portion of points [kx, ky]
+    get keypoint(): [number, number] {
+        return [this.points[4], this.points[5]];
+    }
+
+    static distance(points: number[], x: number, y: number): number {
+        const [xtl, ytl, xbr, ybr, kx, ky] = points;
+        const KEYPOINT_RADIUS = 5;
+
+        // Check if cursor is near the keypoint first (higher priority)
+        const keypointDist = Math.sqrt((x - kx) ** 2 + (y - ky) ** 2);
+        if (keypointDist <= KEYPOINT_RADIUS * 2) {
+            return keypointDist;
+        }
+
+        // Check if cursor is inside the bounding box
+        if (!(x >= xtl && x <= xbr && y >= ytl && y <= ybr)) {
+            // Cursor is outside of the box
+            return null;
+        }
+
+        // Return the shortest distance from point to bbox edge
+        return Math.min.apply(null, [x - xtl, y - ytl, xbr - x, ybr - y]);
+    }
+}
+
 export class SkeletonShape extends Shape {
     public elements: Shape[];
 
@@ -2890,6 +2930,30 @@ export class CuboidTrack extends Track {
     }
 }
 
+export class BboxKeypointTrack extends Track {
+    constructor(data: SerializedTrack, clientID: number, color: string, injection: AnnotationInjection) {
+        super(data, clientID, color, injection);
+        this.shapeType = ShapeType.BBOX_KEYPOINT;
+        this.pinned = false;
+        for (const shape of Object.values(this.shapes)) {
+            checkNumberOfPoints(this.shapeType, shape.points);
+            shape.rotation = 0; // rotation not supported
+        }
+    }
+
+    protected interpolatePosition(leftPosition, rightPosition, offset): InterpolatedPosition {
+        // Linear interpolation for all 6 values: [xtl, ytl, xbr, ybr, kx, ky]
+        const positionOffset = leftPosition.points.map((point, index) => rightPosition.points[index] - point);
+        return {
+            points: leftPosition.points.map((point, index) => point + positionOffset[index] * offset),
+            rotation: 0, // rotation not supported
+            occluded: leftPosition.occluded,
+            outside: leftPosition.outside,
+            zOrder: leftPosition.zOrder,
+        };
+    }
+}
+
 export class SkeletonTrack extends Track {
     public elements: Track[];
 
@@ -3284,6 +3348,7 @@ Object.defineProperty(PolylineTrack, 'distance', { value: PolylineShape.distance
 Object.defineProperty(PointsTrack, 'distance', { value: PointsShape.distance });
 Object.defineProperty(EllipseTrack, 'distance', { value: EllipseShape.distance });
 Object.defineProperty(CuboidTrack, 'distance', { value: CuboidShape.distance });
+Object.defineProperty(BboxKeypointTrack, 'distance', { value: BboxKeypointShape.distance });
 Object.defineProperty(SkeletonTrack, 'distance', { value: SkeletonShape.distance });
 
 export function shapeFactory(
@@ -3319,6 +3384,9 @@ export function shapeFactory(
             break;
         case ShapeType.SKELETON:
             shapeModel = new SkeletonShape(data as SerializedShape, clientID, color, injection);
+            break;
+        case ShapeType.BBOX_KEYPOINT:
+            shapeModel = new BboxKeypointShape(data as SerializedShape, clientID, color, injection);
             break;
         default:
             throw new DataError(`An unexpected type of shape "${type}"`);
@@ -3358,6 +3426,9 @@ export function trackFactory(
                 break;
             case ShapeType.SKELETON:
                 trackModel = new SkeletonTrack(trackData as SerializedTrack, clientID, color, injection);
+                break;
+            case ShapeType.BBOX_KEYPOINT:
+                trackModel = new BboxKeypointTrack(trackData as SerializedTrack, clientID, color, injection);
                 break;
             default:
                 throw new DataError(`An unexpected type of track "${type}"`);

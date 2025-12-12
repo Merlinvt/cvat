@@ -43,6 +43,11 @@ export function checkNumberOfPoints(shapeType: ShapeType, points: number[]): voi
         if (width < 0 || !Number.isInteger(width) || height < 0 || !Number.isInteger(height)) {
             throw new DataError(`Mask width, height must be positive integers, but got ${width}x${height}`);
         }
+    } else if (shapeType === ShapeType.BBOX_KEYPOINT) {
+        // bbox_keypoint requires exactly 6 values: [xtl, ytl, xbr, ybr, kx, ky]
+        if (points.length !== 6) {
+            throw new DataError(`BboxKeypoint must have exactly 6 values (bbox + keypoint), but got ${points.length}`);
+        }
     } else {
         throw new ArgumentError(`Unknown value of shapeType has been received ${shapeType}`);
     }
@@ -80,6 +85,10 @@ export function checkShapeArea(shapeType: ShapeType, points: number[]): boolean 
         const [left, top, right, bottom] = points.slice(-4);
         [width, height] = [right - left + 1, bottom - top + 1];
     } else if (shapeType === ShapeType.RECTANGLE) {
+        const [xtl, ytl, xbr, ybr] = points;
+        [width, height] = [xbr - xtl, ybr - ytl];
+    } else if (shapeType === ShapeType.BBOX_KEYPOINT) {
+        // For bbox_keypoint, compute area from bbox portion (first 4 values)
         const [xtl, ytl, xbr, ybr] = points;
         [width, height] = [xbr - xtl, ybr - ytl];
     } else if (shapeType === ShapeType.ELLIPSE) {

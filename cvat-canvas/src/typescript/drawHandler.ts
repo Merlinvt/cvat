@@ -84,6 +84,13 @@ function checkConstraint(shapeType: string, points: number[], box: Box | null = 
         return width >= consts.SIZE_THRESHOLD || height >= consts.SIZE_THRESHOLD;
     }
 
+    if (shapeType === 'bbox_keypoint') {
+        // bbox_keypoint has 6 values: [xtl, ytl, xbr, ybr, kx, ky]
+        const [xtl, ytl, xbr, ybr] = points;
+        const [width, height] = [xbr - xtl, ybr - ytl];
+        return width >= consts.SIZE_THRESHOLD && height >= consts.SIZE_THRESHOLD;
+    }
+
     return false;
 }
 
@@ -881,6 +888,111 @@ export class DrawHandlerImpl implements DrawHandler {
             });
     }
 
+    private drawBboxKeypoint(): void {
+        // State machine for 3-click workflow:
+        // clickCount=0: waiting for corner 1
+        // clickCount=1: corner 1 set, preview bbox to cursor
+        // clickCount=2: bbox complete, waiting for keypoint
+        let clickCount = 0;
+        let corner1: { x: number; y: number } | null = null;
+        let corner2: { x: number; y: number } | null = null;
+
+        // Create rectangle for bbox preview
+        this.drawInstance = this.canvas.rect()
+            .addClass('cvat_canvas_shape_drawing')
+            .attr({
+                'stroke-width': consts.BASE_STROKE_WIDTH / this.geometry.scale,
+                'fill-opacity': this.selectedShapeOpacity,
+                stroke: this.outlinedBorders,
+            });
+
+        // Create keypoint preview circle (initially hidden)
+        const keypointPreview = this.canvas.circle(10 / this.geometry.scale)
+            .addClass('cvat_canvas_shape_drawing')
+            .attr({
+                'stroke-width': consts.BASE_STROKE_WIDTH / this.geometry.scale,
+                fill: this.outlinedBorders,
+                stroke: this.outlinedBorders,
+                opacity: 0,
+            });
+
+        this.canvas.on('mousedown.draw', (e: MouseEvent): void => {
+            if (e.button !== 0 || e.altKey) return;
+
+            const [x, y] = translateToSVG(this.canvas.node as any as SVGSVGElement, [e.clientX, e.clientY]);
+
+            if (clickCount === 0) {
+                // First click: set corner 1
+                corner1 = { x, y };
+                clickCount = 1;
+            } else if (clickCount === 1) {
+                // Second click: set corner 2, bbox is complete
+                corner2 = { x, y };
+                clickCount = 2;
+                // Show keypoint preview
+                keypointPreview.attr({ opacity: 1 });
+            } else if (clickCount === 2) {
+                // Third click: place keypoint and finish
+                const kx = x;
+                const ky = y;
+
+                // Normalize bbox coordinates
+                const xtl = Math.min(corner1.x, corner2.x);
+                const ytl = Math.min(corner1.y, corner2.y);
+                const xbr = Math.max(corner1.x, corner2.x);
+                const ybr = Math.max(corner1.y, corner2.y);
+
+                // Clamp to frame boundaries
+                const { offset, image } = this.geometry;
+                const [finalXtl, finalYtl, finalXbr, finalYbr, finalKx, finalKy] = translateFromCanvas(
+                    offset,
+                    [xtl, ytl, xbr, ybr, kx, ky],
+                ).map((coord, index) => {
+                    if (index % 2 === 0) {
+                        return clamp(coord, 0, image.width);
+                    }
+                    return clamp(coord, 0, image.height);
+                });
+
+                const points = [finalXtl, finalYtl, finalXbr, finalYbr, finalKx, finalKy];
+                const { shapeType, redraw: clientID } = this.drawData;
+
+                if (this.canceled) {
+                    return;
+                }
+
+                keypointPreview.remove();
+                this.release();
+
+                if (checkConstraint('bbox_keypoint', points)) {
+                    this.onDrawDone({
+                        clientID,
+                        shapeType,
+                        points,
+                    }, Date.now() - this.startTimestamp);
+                } else {
+                    this.onDrawDone(null);
+                }
+            }
+        });
+
+        this.canvas.on('mousemove.draw', (e: MouseEvent): void => {
+            const [x, y] = translateToSVG(this.canvas.node as any as SVGSVGElement, [e.clientX, e.clientY]);
+
+            if (clickCount === 1 && corner1) {
+                // Preview bbox from corner1 to cursor
+                const xtl = Math.min(corner1.x, x);
+                const ytl = Math.min(corner1.y, y);
+                const width = Math.abs(x - corner1.x);
+                const height = Math.abs(y - corner1.y);
+                this.drawInstance.move(xtl, ytl).size(width, height);
+            } else if (clickCount === 2) {
+                // Preview keypoint at cursor position
+                keypointPreview.center(x, y);
+            }
+        });
+    }
+
     private pastePolyshape(): void {
         this.drawInstance.on('done', (e: CustomEvent): void => {
             const targetPoints = this.drawInstance
@@ -1259,9 +1371,11 @@ export class DrawHandlerImpl implements DrawHandler {
                 }
             } else if (this.drawData.shapeType === 'skeleton') {
                 this.drawSkeleton();
+            } else if (this.drawData.shapeType === 'bbox_keypoint') {
+                this.drawBboxKeypoint();
             }
 
-            if (this.drawData.shapeType !== 'ellipse') {
+            if (this.drawData.shapeType !== 'ellipse' && this.drawData.shapeType !== 'bbox_keypoint') {
                 this.setupDrawEvents();
             }
         }
